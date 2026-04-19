@@ -9,6 +9,7 @@ Subcommands so far:
 * ``install`` — emit an env snippet for a supported CLI.
 * ``policy validate`` — validate a TOML config file against the bundled schema.
 * ``audit tail`` — print the last N audit events.
+* ``audit stats`` — print summary statistics of the audit log.
 """
 
 from __future__ import annotations
@@ -150,6 +151,40 @@ def _cmd_audit_tail(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_audit_stats(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    if not path.exists():
+        print(f"audit file not found: {path}", file=sys.stderr)
+        return 2
+    events = 0
+    by_event: dict[str, int] = {}
+    by_type: dict[str, int] = {}
+    with path.open("r", encoding="utf-8") as h:
+        for line in h:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            events += 1
+            evt = rec.get("event", "unknown")
+            by_event[evt] = by_event.get(evt, 0) + 1
+            det_type = rec.get("type", "")
+            if det_type:
+                by_type[det_type] = by_type.get(det_type, 0) + 1
+    print(f"total_events: {events}")
+    print("by_event:")
+    for k in sorted(by_event):
+        print(f"  {k}: {by_event[k]}")
+    if by_type:
+        print("by_type:")
+        for k in sorted(by_type):
+            print(f"  {k}: {by_type[k]}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="makkuro",
@@ -196,6 +231,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_aud_tail.add_argument("path", help="path to the JSONL audit file")
     p_aud_tail.add_argument("-n", type=int, default=20, help="number of lines")
     p_aud_tail.set_defaults(func=_cmd_audit_tail)
+
+    p_aud_stats = aud_sub.add_parser("stats", help="print summary statistics of audit log")
+    p_aud_stats.add_argument("path", help="path to the JSONL audit file")
+    p_aud_stats.set_defaults(func=_cmd_audit_stats)
 
     return parser
 
