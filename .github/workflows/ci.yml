@@ -30,3 +30,16 @@ jobs:
       - name: Toy benchmark
         run: |
           PYTHONPATH=src:. python -m bench.run_eval bench/data/toy/samples.json
+
+  formula:
+    # Ensures Formula/makkuro.rb resources stay in sync with what the update
+    # script would generate. Does NOT run `brew install` (expensive); the tap
+    # consumers do that in their own CI.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check Formula resources are fresh
+        run: python scripts/update_formula.py --check
