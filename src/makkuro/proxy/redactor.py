@@ -7,7 +7,8 @@ response path (when enabled) can restore the originals.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 
 from makkuro.allowlist import AllowList
 from makkuro.audit import AuditEvent, AuditWriter
@@ -24,6 +25,7 @@ class RedactionStats:
     detections: int = 0
     rehydrated: int = 0
     unknown_placeholders: int = 0
+    detections_by_type: Counter[str] = field(default_factory=Counter)
 
 
 class Redactor:
@@ -68,6 +70,7 @@ class Redactor:
             placeholder = self.mint.mint(det.type, original)
             self.vault.put(placeholder, original)
             self.stats.detections += 1
+            self.stats.detections_by_type[det.type] += 1
             if self.audit is not None:
                 self.audit.write(
                     AuditEvent(

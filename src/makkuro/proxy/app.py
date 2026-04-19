@@ -268,6 +268,7 @@ async def _status(request: Request) -> Response:
             "rehydrate": cfg.redaction.rehydrate,
             "upstream_hosts": sorted(cfg.upstream_hosts),
             "detections": redactor.stats.detections,
+            "detections_by_type": dict(redactor.stats.detections_by_type),
             "rehydrated": redactor.stats.rehydrated,
         }
     )
