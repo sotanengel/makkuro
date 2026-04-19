@@ -30,7 +30,7 @@ FORMULA = ROOT / "Formula" / "makkuro.rb"
 # Direct deps match the pyproject.toml runtime pins. Bump transitives with:
 #     python scripts/update_formula.py --refresh-transitives
 RESOURCES: list[tuple[str, str]] = [
-    ("starlette", "0.41.3"),
+    ("starlette", "0.49.1"),
     ("uvicorn", "0.32.1"),
     ("httpx", "0.28.1"),
     ("anyio", "4.13.0"),
