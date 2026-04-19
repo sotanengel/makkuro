@@ -1,18 +1,22 @@
 """Starlette application factory for the redaction proxy.
 
-Only non-streaming Anthropic ``POST /v1/messages`` is wired up in Phase 1.
-SSE streaming and MCP deep-redact arrive in Phase 3.
+Phase 2 wires up three non-streaming providers:
 
-The app keeps request and response handling symmetric: we decode into the
-canonical form, run the redactor, re-encode into the provider payload, relay
-it upstream via an allow-listed httpx client, optionally rehydrate
-placeholders in the response, and write the final JSON back to the client.
+* Anthropic Messages (``POST /v1/messages``)
+* OpenAI Chat / Responses (``POST /v1/chat/completions``, ``POST /v1/responses``)
+* Google Gemini (``POST /v1beta/models/{model}:generateContent``)
+
+SSE streaming and MCP deep-redact arrive in Phase 3. Each request follows
+the same pipeline: JSON decode -> adapter.decode_request -> redactor ->
+adapter.encode_request -> httpx POST (allow-listed) -> on JSON 2xx,
+adapter.extract_response_text + redactor.rehydrate_text -> JSON response.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import uuid
 from typing import Any
 
 import httpx
@@ -21,8 +25,14 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from makkuro.audit import AuditWriter
 from makkuro.config import Config
-from makkuro.protocol import AnthropicAdapter, ProtocolAdapter
+from makkuro.protocol import (
+    AnthropicAdapter,
+    GeminiAdapter,
+    OpenAIAdapter,
+    ProtocolAdapter,
+)
 from makkuro.proxy.egress import BlockedHostError, build_async_client
 from makkuro.proxy.redactor import Redactor
 from makkuro.vault import MemoryVault
@@ -47,7 +57,10 @@ HOP_BY_HOP_HEADERS = frozenset(
 )
 
 
-def _filter_forward_headers(headers: dict[str, str], strip_host: bool = True) -> dict[str, str]:
+def _filter_forward_headers(
+    headers: dict[str, str],
+    strip_host: bool = True,
+) -> dict[str, str]:
     out = {}
     for k, v in headers.items():
         lk = k.lower()
@@ -59,17 +72,21 @@ def _filter_forward_headers(headers: dict[str, str], strip_host: bool = True) ->
     return out
 
 
-async def _proxy_anthropic_messages(
+async def _relay(
     request: Request,
+    provider_key: str,
 ) -> Response:
     cfg: Config = request.app.state.config
-    adapter: ProtocolAdapter = request.app.state.adapters["anthropic"]
+    adapter: ProtocolAdapter = request.app.state.adapters[provider_key]
     redactor: Redactor = request.app.state.redactor
     client: httpx.AsyncClient = request.app.state.egress
 
-    provider = cfg.providers.get("anthropic")
+    provider = cfg.providers.get(provider_key)
     if provider is None or not provider.enabled:
-        return JSONResponse({"error": "anthropic provider disabled"}, status_code=503)
+        return JSONResponse(
+            {"error": f"{provider_key} provider disabled"},
+            status_code=503,
+        )
 
     raw_body = await request.body()
     max_bytes = cfg.proxy.max_body_mb * 1024 * 1024
@@ -81,13 +98,15 @@ async def _proxy_anthropic_messages(
     except json.JSONDecodeError as e:
         return JSONResponse({"error": f"invalid JSON: {e}"}, status_code=400)
 
+    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
+    redactor.bind_request(request_id)
+
     canonical = adapter.decode_request(body)
     try:
         redactor.redact_request(canonical)
     except Exception as e:  # fail-safe per spec §6.10
         logger.exception("redaction failed; refusing to forward", exc_info=e)
         if cfg.redaction.mode == "warn":
-            # warn mode lets the original go through untouched
             encoded = body
         else:
             return JSONResponse(
@@ -107,7 +126,11 @@ async def _proxy_anthropic_messages(
         upstream = await client.post(
             upstream_url,
             content=json.dumps(encoded).encode("utf-8"),
-            headers={**upstream_headers, "content-type": "application/json"},
+            headers={
+                **upstream_headers,
+                "content-type": "application/json",
+                "x-request-id": request_id,
+            },
         )
     except BlockedHostError as e:
         return JSONResponse({"error": str(e)}, status_code=502)
@@ -118,7 +141,6 @@ async def _proxy_anthropic_messages(
     content_type = upstream.headers.get("content-type", "")
 
     if upstream.status_code >= 400 or "application/json" not in content_type:
-        # Pass error / non-JSON bodies through untouched.
         return Response(
             content=upstream.content,
             status_code=upstream.status_code,
@@ -143,6 +165,18 @@ async def _proxy_anthropic_messages(
             resp_body = adapter.apply_response_text(resp_body, new_edits)
 
     return JSONResponse(resp_body, status_code=upstream.status_code, headers=resp_headers)
+
+
+async def _proxy_anthropic(request: Request) -> Response:
+    return await _relay(request, "anthropic")
+
+
+async def _proxy_openai(request: Request) -> Response:
+    return await _relay(request, "openai")
+
+
+async def _proxy_gemini(request: Request) -> Response:
+    return await _relay(request, "gemini")
 
 
 async def _healthz(_: Request) -> Response:
@@ -171,32 +205,45 @@ def build_app(
     vault: Vault | None = None,
     redactor: Redactor | None = None,
     egress_transport: httpx.AsyncBaseTransport | None = None,
+    audit: AuditWriter | None = None,
 ) -> Starlette:
     """Build the Starlette proxy application.
 
-    Callers can inject ``egress_transport`` to route upstream calls through a
-    mock (used by the test suite) or through a real ``httpx`` transport.
+    Callers can inject ``egress_transport`` (typically an ``httpx.MockTransport``
+    from the test suite) and ``audit`` (an in-memory ``AuditWriter`` for
+    tests). Both default to a real allow-listed httpx transport and a no-op
+    writer respectively.
     """
     vault = vault if vault is not None else MemoryVault()
-    redactor = redactor if redactor is not None else Redactor(vault)
+    if audit is None:
+        audit = AuditWriter(path=None, enabled=False)
+    redactor = redactor if redactor is not None else Redactor(vault, audit=audit)
     egress = build_async_client(
         allowed_hosts=config.upstream_hosts,
         timeout=float(config.proxy.request_timeout_sec),
         inner=egress_transport,
     )
 
-    app = Starlette(
-        routes=[
-            Route("/healthz", _healthz, methods=["GET"]),
-            Route("/v1/status", _status, methods=["GET"]),
-            Route("/v1/messages", _proxy_anthropic_messages, methods=["POST"]),
-        ]
-    )
+    routes = [
+        Route("/healthz", _healthz, methods=["GET"]),
+        Route("/v1/status", _status, methods=["GET"]),
+        Route("/v1/messages", _proxy_anthropic, methods=["POST"]),
+        Route("/v1/chat/completions", _proxy_openai, methods=["POST"]),
+        Route("/v1/responses", _proxy_openai, methods=["POST"]),
+        Route("/v1beta/models/{rest:path}", _proxy_gemini, methods=["POST"]),
+        Route("/v1/models/{rest:path}", _proxy_gemini, methods=["POST"]),
+    ]
+    app = Starlette(routes=routes)
     app.state.config = config
-    app.state.adapters = {"anthropic": AnthropicAdapter()}
+    app.state.adapters = {
+        "anthropic": AnthropicAdapter(),
+        "openai": OpenAIAdapter(),
+        "gemini": GeminiAdapter(),
+    }
     app.state.redactor = redactor
     app.state.vault = vault
     app.state.egress = egress
+    app.state.audit = audit
 
     async def _close_egress() -> None:
         await egress.aclose()

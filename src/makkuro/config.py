@@ -42,11 +42,19 @@ class SecurityConfig:
 
 
 @dataclass
+class AuditConfig:
+    enabled: bool = True
+    path: str | None = None  # defaults to $XDG_STATE_HOME/makkuro/audit.jsonl
+    level: str = "info"
+
+
+@dataclass
 class Config:
     proxy: ProxyConfig = field(default_factory=ProxyConfig)
     redaction: RedactionConfig = field(default_factory=RedactionConfig)
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     security: SecurityConfig = field(default_factory=SecurityConfig)
+    audit: AuditConfig = field(default_factory=AuditConfig)
 
     @property
     def upstream_hosts(self) -> frozenset[str]:
@@ -64,6 +72,14 @@ _DEFAULT_PROVIDERS: dict[str, ProviderConfig] = {
     "anthropic": ProviderConfig(
         upstream="https://api.anthropic.com",
         protocol="anthropic",
+    ),
+    "openai": ProviderConfig(
+        upstream="https://api.openai.com",
+        protocol="openai",
+    ),
+    "gemini": ProviderConfig(
+        upstream="https://generativelanguage.googleapis.com",
+        protocol="gemini",
     ),
 }
 
@@ -112,6 +128,17 @@ def load_from_dict(data: dict[str, Any], base: Config | None = None) -> Config:
         cfg.security.network_allowlist_strict = bool(sec["network_allowlist_strict"])
     if "integrity_check" in sec:
         cfg.security.integrity_check = bool(sec["integrity_check"])
+
+    audit = data.get("audit") or {}
+    if "enabled" in audit:
+        cfg.audit.enabled = bool(audit["enabled"])
+    if "path" in audit:
+        cfg.audit.path = str(audit["path"]) if audit["path"] else None
+    if "level" in audit:
+        lvl = str(audit["level"])
+        if lvl not in ("debug", "info", "warn", "error"):
+            raise ValueError(f"invalid audit.level: {lvl!r}")
+        cfg.audit.level = lvl
 
     providers = data.get("providers")
     if isinstance(providers, dict):

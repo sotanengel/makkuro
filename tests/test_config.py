@@ -7,10 +7,12 @@ import pytest
 from makkuro.config import apply_env, default_config, load, load_from_dict
 
 
-def test_default_config_has_anthropic():
+def test_default_config_has_all_providers():
     cfg = default_config()
-    assert "anthropic" in cfg.providers
-    assert cfg.upstream_hosts == frozenset({"api.anthropic.com"})
+    assert {"anthropic", "openai", "gemini"} <= set(cfg.providers)
+    assert "api.anthropic.com" in cfg.upstream_hosts
+    assert "api.openai.com" in cfg.upstream_hosts
+    assert "generativelanguage.googleapis.com" in cfg.upstream_hosts
 
 
 def test_load_from_dict_override():

@@ -1,8 +1,14 @@
 """makkuro CLI.
 
-Phase 0: ``version``, ``test``, ``doctor``.
-Phase 1 adds ``start`` (run proxy), ``status`` (query /v1/status of a running
-proxy), and ``install`` (emit shell env snippet for supported AI CLIs).
+Subcommands so far:
+
+* ``version`` — print version.
+* ``test`` — dry-run detectors on a single string.
+* ``doctor`` — environment and detector summary.
+* ``start`` — run the proxy in the foreground.
+* ``install`` — emit an env snippet for a supported CLI.
+* ``policy validate`` — validate a TOML config file against the bundled schema.
+* ``audit tail`` — print the last N audit events.
 """
 
 from __future__ import annotations
@@ -10,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 from makkuro import __version__
@@ -17,6 +24,7 @@ from makkuro.config import load as load_config
 from makkuro.detectors import DEFAULT_DETECTORS
 from makkuro.pipeline import run_detectors
 from makkuro.placeholder import PlaceholderMint, substitute
+from makkuro.policy import validate as validate_policy
 
 _INSTALL_SNIPPETS: dict[str, str] = {
     "claude": "export ANTHROPIC_BASE_URL=http://127.0.0.1:{port}",
@@ -66,9 +74,6 @@ def _cmd_doctor(_: argparse.Namespace) -> int:
 
 
 def _cmd_start(args: argparse.Namespace) -> int:
-    # Imported lazily so that ``makkuro version`` never pulls in starlette /
-    # uvicorn / httpx -- keeps cold-start fast and lets uvicorn be an optional
-    # runtime dep in constrained environments.
     from makkuro.proxy.server import run
 
     cfg_path = Path(args.config) if args.config else None
@@ -88,6 +93,38 @@ def _cmd_install(args: argparse.Namespace) -> int:
         print(f"unknown tool: {tool}", file=sys.stderr)
         return 2
     print(snippet.format(port=args.port))
+    return 0
+
+
+def _cmd_policy_validate(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    if not path.exists():
+        print(f"config file not found: {path}", file=sys.stderr)
+        return 2
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as e:
+        print(f"invalid TOML: {e}", file=sys.stderr)
+        return 1
+    report = validate_policy(data)
+    if report.ok:
+        print(f"OK: {path}")
+        return 0
+    for err in report.errors:
+        print(f"  {err}", file=sys.stderr)
+    print(f"{len(report.errors)} error(s) in {path}", file=sys.stderr)
+    return 1
+
+
+def _cmd_audit_tail(args: argparse.Namespace) -> int:
+    path = Path(args.path)
+    if not path.exists():
+        print(f"audit file not found: {path}", file=sys.stderr)
+        return 2
+    with path.open("r", encoding="utf-8") as h:
+        lines = h.readlines()
+    for line in lines[-args.n:]:
+        sys.stdout.write(line)
     return 0
 
 
@@ -118,6 +155,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_ins.add_argument("tool", choices=sorted(_INSTALL_SNIPPETS))
     p_ins.add_argument("--port", type=int, default=8787)
     p_ins.set_defaults(func=_cmd_install)
+
+    p_pol = sub.add_parser("policy", help="policy tools")
+    pol_sub = p_pol.add_subparsers(dest="policy_command", required=True)
+    p_pol_val = pol_sub.add_parser(
+        "validate", help="validate a TOML config against the bundled schema"
+    )
+    p_pol_val.add_argument("path", help="path to the config file")
+    p_pol_val.set_defaults(func=_cmd_policy_validate)
+
+    p_aud = sub.add_parser("audit", help="audit log tools")
+    aud_sub = p_aud.add_subparsers(dest="audit_command", required=True)
+    p_aud_tail = aud_sub.add_parser("tail", help="print the last N audit events")
+    p_aud_tail.add_argument("path", help="path to the JSONL audit file")
+    p_aud_tail.add_argument("-n", type=int, default=20, help="number of lines")
+    p_aud_tail.set_defaults(func=_cmd_audit_tail)
 
     return parser
 
