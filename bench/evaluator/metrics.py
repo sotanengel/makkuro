@@ -79,7 +79,7 @@ def evaluate(
     if len(predictions) != len(gold):
         raise ValueError("predictions and gold must have equal length")
     scores: dict[str, EntityScore] = {}
-    for preds, golds in zip(predictions, gold):
+    for preds, golds in zip(predictions, gold, strict=False):
         matched_pred: set[int] = set()
         matched_gold: set[int] = set()
         for gi, g in enumerate(golds):
