@@ -52,3 +52,19 @@ def test_no_lookback_when_no_sentinel():
     r = SSERehydrator(mint)
     out = r.feed("nothing special here")
     assert out == "nothing special here"
+
+
+def test_split_placeholder_with_underscore_type():
+    """Placeholders like JP_MOBILE whose hash contains a-f must be held back."""
+    mint = PlaceholderMint()
+    ph = mint.mint("JP_MOBILE", "090-1234-5678")
+    # Split inside the 8-char hex hash so the tail has lowercase hex digits.
+    split = ph.index("_", len("<MAKKURO_JP_MOBILE")) + 3  # 3 hex chars in
+    a, b = ph[:split], ph[split:]
+
+    r = SSERehydrator(mint)
+    first = r.feed(f"call {a}")
+    second = r.feed(f"{b} ok") + r.flush()
+    combined = first + second
+    assert "090-1234-5678" in combined
+    assert ph not in combined
