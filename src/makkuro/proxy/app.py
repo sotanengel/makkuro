@@ -184,6 +184,12 @@ async def _relay(
             new_edits = [(path, redactor.rehydrate_text(text)) for path, text in edits]
             resp_body = adapter.apply_response_text(resp_body, new_edits)
 
+    if cfg.redaction.response_redaction:
+        resp_edits = adapter.extract_response_text(resp_body)
+        if resp_edits:
+            redacted_edits = [(path, redactor.redact_text(text)) for path, text in resp_edits]
+            resp_body = adapter.apply_response_text(resp_body, redacted_edits)
+
     return JSONResponse(resp_body, status_code=upstream.status_code, headers=resp_headers)
 
 
