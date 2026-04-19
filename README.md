@@ -1,93 +1,68 @@
 # makkuro
 
-**AI CLI 向けローカル redaction プロキシ**
+### AI に送る前に、機密情報を自動で塗りつぶす。
+
+Claude Code / Codex / Gemini CLI / aider などの AI ツールに、
+うっかり **顧客のメールアドレス / 電話番号 / API キー / クレカ番号**
+まで一緒に送っていませんか？ makkuro を手元で立ち上げておけば、
+AI に届く前に自動でダミー値へ置換し、返ってきた応答は必要に応じて
+元の値へ戻します。AI 側のログには個人情報が残りません。
+
+- **設定は 1 回だけ** — `brew install` して環境変数を 1 行通すだけ。
+- **ローカル完結** — 塗りつぶしは手元の PC で。追加 SaaS 不要。
+- **日本語情報に強い** — 携帯/固定電話、郵便番号、マイナンバー、Luhn 付きクレカ番号を標準サポート。
+- **気づきやすい監査ログ** — 「いつ・何の種別を塗った」が JSONL で残る (値そのものは保存しない)。
 
 [![CI](https://github.com/sotanengel/makkuro/actions/workflows/ci.yml/badge.svg)](https://github.com/sotanengel/makkuro/actions/workflows/ci.yml)
 [![Security](https://github.com/sotanengel/makkuro/actions/workflows/security.yml/badge.svg)](https://github.com/sotanengel/makkuro/actions/workflows/security.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 
-makkuro は Claude Code / Codex CLI / Gemini CLI / aider などの AI CLI と
-AI プロバイダ API の間にローカル HTTP プロキシを立てるツールです。
-
-- 送信前にプロンプトから **PII / シークレットを検出** し、placeholder
-  (例: `<MAKKURO_EMAIL_0001>`) に置換します。
-- 応答受信時に必要なら元の値へ **rehydrate** します。
-- 送信先は **allow-list で厳格に制約** され、ループバック以外からは受けません。
-- ローカル完結・追加 SaaS 不要・Apache-2.0。
-
-> ⚠️ **Status**: Alpha (0.1.x). API / 設定キーは 1.0 までに変わる可能性があります。
-> プロダクションで使う前に [SECURITY.md](SECURITY.md) と
-> [docs/SPEC.md](docs/SPEC.md) の脅威モデルを確認してください。
+> ⚠️ **Status**: Alpha (0.1.x)。設定キーは 1.0 までに変わる可能性があります。
 
 ---
 
-## なぜ makkuro か
+## 30 秒でイメージ
 
-**課題**: AI CLI (Claude Code / Codex / Gemini CLI / aider 等) は手元の
-コードや会話ログを生のままプロバイダへ送ります。そこには気付かないうちに
-以下のような情報が混ざります。
+あなたがターミナルに書くのはいつもどおり:
 
-- 社員名簿・顧客連絡先 (メール、電話番号、郵便番号、マイナンバー)
-- `.env` の API キー、DB 接続文字列、AWS アクセスキー、GitHub トークン
-- クレジットカード番号、社内固有 ID、検証環境のシークレット
+> 田中さん (tanaka@example.com, 090-1234-5678) 向けに謝罪メールの下書きを書いて
 
-一度送信された情報はプロバイダ側のログ・モデル学習・監査トレイルに
-残り得ます。組織で AI CLI を広く使わせたくても、**情報漏洩の不安が
-導入のブロッカー** になります。
+makkuro を経由すると、AI に実際に届くのは **こう書き換わったもの**:
 
-**makkuro の役割**: 手元と AI プロバイダの間にローカル HTTP プロキシを
-置き、**送信の直前に** プロンプト本文・MCP tool call・SSE ストリームを
-走査して、機密値を placeholder へ差し替えます。
+> 田中さん (`<MAKKURO_EMAIL_0001>`, `<MAKKURO_JP_MOBILE_0001>`) 向けに謝罪メールの下書きを書いて
 
-```
-AI CLI ──► makkuro ──► プロバイダ API
-           │   │
-           │   └── upstream は allow-list で制約 (それ以外はブロック)
-           ├── PII / シークレットを検出 → <MAKKURO_EMAIL_0001> に置換
-           ├── マッピングはメモリ or age 暗号化 vault に保持
-           └── 応答受信時に必要なら元の値へ rehydrate
+AI から返ってきた本文中の `<MAKKURO_EMAIL_0001>` は自動で `tanaka@example.com` に戻るので、
+**あなたから見た体験は変わりません**。メール・電話番号・API キー・マイナンバー・クレカ番号などを
+一通り標準で検出します。
 
-[監査ログ]  検出メタデータのみ JSONL に追記 (生の値は記録しない)
+---
+
+## 今すぐ使う (3 行)
+
+```bash
+brew tap sotanengel/makkuro https://github.com/sotanengel/makkuro.git
+brew install --HEAD sotanengel/makkuro/makkuro
+makkuro start                                   # 別ターミナルで起動しっぱなしに
 ```
 
-### 得られる効果
+あとは AI CLI 側で環境変数を 1 行通すだけ。例えば Claude Code なら:
 
-| Before (直送) | After (makkuro 経由) |
-| --- | --- |
-| `foo@example.com を CC に入れて` がそのままプロバイダへ | `<MAKKURO_EMAIL_0001> を CC に入れて` に置換されて送信 |
-| `.env` を貼り付けると API キー全文が流れる | gitleaks 系パターンで検出 → 置換 or ブロック |
-| どのプロンプトで何が流れたか後から追えない | JSONL 監査ログに検出メタデータが残る (値は非保存) |
-| CLI の設定ミスで未知のエンドポイントに送られる | upstream allow-list で未登録ホストは即拒否 |
-| 開発者が都度手で伏せ字化する運用 | プロキシ経由するだけで自動適用 |
+```bash
+eval "$(makkuro install claude)"   # codex / gemini / aider も同じ要領
+claude
+```
 
-### makkuro に向いているユースケース
+動作確認だけしたければ AI には投げずに:
 
-- **AI CLI を組織に展開したい** — 個々の開発者に注意を促す代わりに、
-  プロキシ側で一律に redact してから送る。
-- **日本の PII を扱う** — 携帯/固定電話、郵便番号、マイナンバー、
-  Luhn 付きクレカ番号などを日本仕様で検出。
-- **秘匿前提の検証環境** — ループバックのみ bind、送信先 allow-list、
-  Sigstore 署名 + SLSA provenance 付きリリースで
-  サプライチェーンを説明可能にしたい。
-- **rehydrate したい** — 応答中の placeholder を元の値に戻して、
-  実在のデータとして CLI 側に渡したい (例: メール下書きの完成形)。
-
-### makkuro でできないこと (明示的に非目標)
-
-- **モデル出力そのものの検閲** は行いません。プロンプトに入る前の
-  redaction と応答の rehydrate が目的です。
-- **完璧な PII 検出を保証しません**。検出はベストエフォートで、toy
-  benchmark のマクロ F1 を CI で監視しています。ブロックモードや
-  custom_patterns と組み合わせて運用してください。
-- **プロバイダ側での保管/学習オプトアウト** は各プロバイダの設定を
-  別途行う必要があります。makkuro は "送る前に伏せる" 層です。
+```bash
+makkuro test "連絡先 foo@example.com / 090-1234-5678 まで"
+```
 
 ---
 
 ## 目次
 
-- [なぜ makkuro か](#なぜ-makkuro-か)
 - [インストール](#インストール)
 - [クイックスタート](#クイックスタート)
 - [設定ファイル](#設定ファイル)
@@ -99,6 +74,7 @@ AI CLI ──► makkuro ──► プロバイダ API
 - [暗号化 vault (任意)](#暗号化-vault-任意)
 - [ベンチマーク](#ベンチマーク)
 - [開発](#開発)
+- [詳しい仕組みとユースケース](#詳しい仕組みとユースケース)
 - [セキュリティ](#セキュリティ)
 - [ライセンス](#ライセンス)
 
@@ -332,6 +308,72 @@ ruff check src tests bench
 
 貢献ガイドラインは [CONTRIBUTING.md](CONTRIBUTING.md)、
 コミュニティ規範は [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) を参照してください。
+
+---
+
+## 詳しい仕組みとユースケース
+
+### なぜ必要か
+
+AI CLI は手元のコードや会話ログを生のままプロバイダへ送ります。
+そこには気付かないうちに以下のような情報が混ざります。
+
+- 社員名簿・顧客連絡先 (メール、電話番号、郵便番号、マイナンバー)
+- `.env` の API キー、DB 接続文字列、AWS アクセスキー、GitHub トークン
+- クレジットカード番号、社内固有 ID、検証環境のシークレット
+
+一度送信された情報はプロバイダ側のログ・モデル学習・監査トレイルに
+残り得ます。組織で AI CLI を広く使わせたいときに、**情報漏洩の不安が
+導入のブロッカー** になりがちです。
+
+### 仕組み
+
+手元と AI プロバイダの間にローカル HTTP プロキシを置き、**送信の直前に**
+プロンプト本文・MCP tool call・SSE ストリームを走査して、機密値を
+placeholder に差し替えます。
+
+```
+AI CLI ──► makkuro ──► プロバイダ API
+           │   │
+           │   └── upstream は allow-list で制約 (それ以外はブロック)
+           ├── PII / シークレットを検出 → <MAKKURO_EMAIL_0001> に置換
+           ├── マッピングはメモリ or age 暗号化 vault に保持
+           └── 応答受信時に必要なら元の値へ rehydrate
+
+[監査ログ]  検出メタデータのみ JSONL に追記 (生の値は記録しない)
+```
+
+### Before / After
+
+| Before (直送) | After (makkuro 経由) |
+| --- | --- |
+| `foo@example.com を CC に入れて` がそのままプロバイダへ | `<MAKKURO_EMAIL_0001> を CC に入れて` に置換されて送信 |
+| `.env` を貼り付けると API キー全文が流れる | gitleaks 系パターンで検出 → 置換 or ブロック |
+| どのプロンプトで何が流れたか後から追えない | JSONL 監査ログに検出メタデータが残る (値は非保存) |
+| CLI の設定ミスで未知のエンドポイントに送られる | upstream allow-list で未登録ホストは即拒否 |
+| 開発者が都度手で伏せ字化する運用 | プロキシ経由するだけで自動適用 |
+
+### 向いているユースケース
+
+- **AI CLI を組織に展開したい** — 個々の開発者に注意を促す代わりに、
+  プロキシ側で一律に redact してから送る。
+- **日本の PII を扱う** — 携帯/固定電話、郵便番号、マイナンバー、
+  Luhn 付きクレカ番号などを日本仕様で検出。
+- **秘匿前提の検証環境** — ループバックのみ bind、送信先 allow-list、
+  Sigstore 署名 + SLSA provenance 付きリリースで
+  サプライチェーンを説明可能にしたい。
+- **応答を元に戻したい (rehydrate)** — 下書きメールの完成形など、
+  実在のデータとして CLI 側に渡したい用途。
+
+### できないこと (非目標)
+
+- **モデル出力そのものの検閲** は行いません。プロンプトに入る前の
+  redaction と応答の rehydrate が目的です。
+- **完璧な PII 検出を保証しません**。検出はベストエフォートで、toy
+  benchmark のマクロ F1 を CI で監視しています。ブロックモードや
+  custom_patterns と組み合わせて運用してください。
+- **プロバイダ側での保管/学習オプトアウト** は各プロバイダの設定を
+  別途行う必要があります。makkuro は "送る前に伏せる" 層です。
 
 ---
 
