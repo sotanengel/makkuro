@@ -24,10 +24,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Install runtime + audit tooling
+      - name: Install runtime deps (without the editable project)
+        # We install the project's runtime deps as declared in pyproject.toml
+        # but NOT makkuro itself. `pip install -e .` would install makkuro,
+        # which pip-audit --strict then tries (and fails) to look up on PyPI
+        # before the first release.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          python -c "
+          import pathlib, tomllib
+          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+          print('\n'.join(data['project']['dependencies']))
+          " > runtime-requirements.txt
+          python -m pip install -r runtime-requirements.txt
           python -m pip install pip-audit==2.9.0
       - name: pip-audit
         run: python -m pip_audit --strict --progress-spinner off
@@ -36,12 +45,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Resolve runtime deps to requirements.txt
+        # osv-scanner doesn't parse pyproject.toml. We resolve our runtime
+        # deps (direct + transitive) into a requirements.txt shape and feed
+        # that in via --lockfile.
+        run: |
+          python -m pip install --upgrade pip
+          python -c "
+          import pathlib, tomllib
+          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+          print('\n'.join(data['project']['dependencies']))
+          " > /tmp/runtime-deps.txt
+          python -m venv /tmp/resolveenv
+          /tmp/resolveenv/bin/pip install --quiet -r /tmp/runtime-deps.txt
+          /tmp/resolveenv/bin/pip freeze > requirements-osv.txt
+          cat requirements-osv.txt
       - name: Install osv-scanner
         run: |
           curl -fsSL -o /tmp/osv "https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64"
           chmod +x /tmp/osv
-      - name: Scan repository for known vulnerabilities
-        run: /tmp/osv -r .
+      - name: Scan resolved requirements for known vulnerabilities
+        run: /tmp/osv --lockfile=requirements.txt:./requirements-osv.txt
 
   bandit:
     runs-on: ubuntu-latest
