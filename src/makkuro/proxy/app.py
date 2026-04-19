@@ -56,6 +56,8 @@ HOP_BY_HOP_HEADERS = frozenset(
         "transfer-encoding",
         "upgrade",
         "content-length",
+        "content-encoding",
+        "accept-encoding",
         "host",
     }
 )
