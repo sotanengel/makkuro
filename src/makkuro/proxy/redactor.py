@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from makkuro.allowlist import AllowList
 from makkuro.audit import AuditEvent, AuditWriter
 from makkuro.detectors import DEFAULT_DETECTORS
 from makkuro.detectors.base import Detector
@@ -34,11 +35,13 @@ class Redactor:
         detectors: list[Detector] | None = None,
         mint: PlaceholderMint | None = None,
         audit: AuditWriter | None = None,
+        allow_list: AllowList | None = None,
     ) -> None:
         self.vault = vault
         self.detectors = detectors if detectors is not None else list(DEFAULT_DETECTORS)
         self.mint = mint if mint is not None else PlaceholderMint()
         self.audit = audit
+        self.allow_list = allow_list if allow_list is not None else AllowList()
         self.stats = RedactionStats()
         self._request_id: str = ""
 
@@ -52,6 +55,7 @@ class Redactor:
         if not text:
             return text
         detections = run_detectors(self.detectors, text)
+        detections = self.allow_list.filter(detections)
         if not detections:
             return text
         redacted = substitute(text, detections, self.mint)
