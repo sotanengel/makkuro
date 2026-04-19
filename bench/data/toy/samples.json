@@ -1,0 +1,321 @@
+[
+  {
+    "id": "toy_email_01",
+    "text": "お問い合わせは support@example.com までお願いします。",
+    "entities": [{"type": "EMAIL", "value": "support@example.com"}],
+    "category": "positive",
+    "entity_group": "EMAIL"
+  },
+  {
+    "id": "toy_email_02",
+    "text": "Please reply to alice.smith+work@example.co.jp by Friday.",
+    "entities": [{"type": "EMAIL", "value": "alice.smith+work@example.co.jp"}],
+    "category": "positive",
+    "entity_group": "EMAIL"
+  },
+  {
+    "id": "toy_email_03",
+    "text": "Two addresses: a@b.jp and c.d-e@sub.example.org in one line.",
+    "entities": [
+      {"type": "EMAIL", "value": "a@b.jp"},
+      {"type": "EMAIL", "value": "c.d-e@sub.example.org"}
+    ],
+    "category": "positive",
+    "entity_group": "EMAIL"
+  },
+  {
+    "id": "toy_email_04",
+    "text": "Contact: report-2024@company.internal for details.",
+    "entities": [{"type": "EMAIL", "value": "report-2024@company.internal"}],
+    "category": "positive",
+    "entity_group": "EMAIL"
+  },
+  {
+    "id": "toy_email_05",
+    "text": "メールアドレスは test@example.com と info@example.org です。",
+    "entities": [
+      {"type": "EMAIL", "value": "test@example.com"},
+      {"type": "EMAIL", "value": "info@example.org"}
+    ],
+    "category": "positive",
+    "entity_group": "EMAIL"
+  },
+  {
+    "id": "toy_mobile_01",
+    "text": "緊急時の連絡先は 090-1234-5678 までお願いします。",
+    "entities": [{"type": "JP_MOBILE", "value": "090-1234-5678"}],
+    "category": "positive",
+    "entity_group": "JP_MOBILE"
+  },
+  {
+    "id": "toy_mobile_02",
+    "text": "携帯: 08012345678 / 09087654321",
+    "entities": [
+      {"type": "JP_MOBILE", "value": "08012345678"},
+      {"type": "JP_MOBILE", "value": "09087654321"}
+    ],
+    "category": "positive",
+    "entity_group": "JP_MOBILE"
+  },
+  {
+    "id": "toy_mobile_03",
+    "text": "担当の田中は070-1111-2222、鈴木は080-3333-4444です。",
+    "entities": [
+      {"type": "JP_MOBILE", "value": "070-1111-2222"},
+      {"type": "JP_MOBILE", "value": "080-3333-4444"}
+    ],
+    "category": "positive",
+    "entity_group": "JP_MOBILE"
+  },
+  {
+    "id": "toy_mobile_04",
+    "text": "I was reached at 090 1234 5678 this morning.",
+    "entities": [{"type": "JP_MOBILE", "value": "090 1234 5678"}],
+    "category": "positive",
+    "entity_group": "JP_MOBILE"
+  },
+  {
+    "id": "toy_mobile_05",
+    "text": "090-9999-0000 は休日でも対応可。",
+    "entities": [{"type": "JP_MOBILE", "value": "090-9999-0000"}],
+    "category": "positive",
+    "entity_group": "JP_MOBILE"
+  },
+  {
+    "id": "toy_landline_01",
+    "text": "東京本社: 03-1234-5678 まで。",
+    "entities": [{"type": "JP_LANDLINE", "value": "03-1234-5678"}],
+    "category": "positive",
+    "entity_group": "JP_LANDLINE"
+  },
+  {
+    "id": "toy_landline_02",
+    "text": "Call 0467-12-3456 before 5pm.",
+    "entities": [{"type": "JP_LANDLINE", "value": "0467-12-3456"}],
+    "category": "positive",
+    "entity_group": "JP_LANDLINE"
+  },
+  {
+    "id": "toy_landline_03",
+    "text": "お電話: 0120-123-456",
+    "entities": [{"type": "JP_LANDLINE", "value": "0120-123-456"}],
+    "category": "positive",
+    "entity_group": "JP_LANDLINE"
+  },
+  {
+    "id": "toy_landline_04",
+    "text": "名古屋支店(052-765-4321)まで。",
+    "entities": [{"type": "JP_LANDLINE", "value": "052-765-4321"}],
+    "category": "positive",
+    "entity_group": "JP_LANDLINE"
+  },
+  {
+    "id": "toy_landline_05",
+    "text": "福岡 092-111-2222 大阪 06-6666-7777",
+    "entities": [
+      {"type": "JP_LANDLINE", "value": "092-111-2222"},
+      {"type": "JP_LANDLINE", "value": "06-6666-7777"}
+    ],
+    "category": "positive",
+    "entity_group": "JP_LANDLINE"
+  },
+  {
+    "id": "toy_zip_01",
+    "text": "〒100-0001 東京都千代田区千代田1-1",
+    "entities": [{"type": "JP_ZIP", "value": "〒100-0001"}],
+    "category": "positive",
+    "entity_group": "JP_ZIP"
+  },
+  {
+    "id": "toy_zip_02",
+    "text": "郵便番号: 150-0002 です。",
+    "entities": [{"type": "JP_ZIP", "value": "150-0002"}],
+    "category": "positive",
+    "entity_group": "JP_ZIP"
+  },
+  {
+    "id": "toy_zip_03",
+    "text": "Ship to 5300001 Osaka.",
+    "entities": [{"type": "JP_ZIP", "value": "5300001"}],
+    "category": "positive",
+    "entity_group": "JP_ZIP"
+  },
+  {
+    "id": "toy_zip_04",
+    "text": "〒 810-0001 福岡市中央区",
+    "entities": [{"type": "JP_ZIP", "value": "〒 810-0001"}],
+    "category": "positive",
+    "entity_group": "JP_ZIP"
+  },
+  {
+    "id": "toy_zip_05",
+    "text": "〒160-0023 と 〒160-0022 の違い。",
+    "entities": [
+      {"type": "JP_ZIP", "value": "〒160-0023"},
+      {"type": "JP_ZIP", "value": "〒160-0022"}
+    ],
+    "category": "positive",
+    "entity_group": "JP_ZIP"
+  },
+  {
+    "id": "toy_cc_01",
+    "text": "Card: 4111-1111-1111-1111 expires 12/30.",
+    "entities": [{"type": "JP_CREDIT_CARD", "value": "4111-1111-1111-1111"}],
+    "category": "positive",
+    "entity_group": "JP_CREDIT_CARD"
+  },
+  {
+    "id": "toy_cc_02",
+    "text": "請求先カード番号 5555 5555 5555 4444 を控えてください。",
+    "entities": [{"type": "JP_CREDIT_CARD", "value": "5555 5555 5555 4444"}],
+    "category": "positive",
+    "entity_group": "JP_CREDIT_CARD"
+  },
+  {
+    "id": "toy_cc_03",
+    "text": "AmEx 378282246310005 on file.",
+    "entities": [{"type": "JP_CREDIT_CARD", "value": "378282246310005"}],
+    "category": "positive",
+    "entity_group": "JP_CREDIT_CARD"
+  },
+  {
+    "id": "toy_cc_04",
+    "text": "2枚: 4012888888881881 と 6011111111111117",
+    "entities": [
+      {"type": "JP_CREDIT_CARD", "value": "4012888888881881"},
+      {"type": "JP_CREDIT_CARD", "value": "6011111111111117"}
+    ],
+    "category": "positive",
+    "entity_group": "JP_CREDIT_CARD"
+  },
+  {
+    "id": "toy_cc_05",
+    "text": "Card number 4532015112830366 was declined.",
+    "entities": [{"type": "JP_CREDIT_CARD", "value": "4532015112830366"}],
+    "category": "positive",
+    "entity_group": "JP_CREDIT_CARD"
+  },
+  {
+    "id": "toy_myn_01",
+    "text": "マイナンバー: 111111111118 を登録しました。",
+    "entities": [{"type": "JP_MYNUMBER", "value": "111111111118"}],
+    "category": "positive",
+    "entity_group": "JP_MYNUMBER"
+  },
+  {
+    "id": "toy_myn_02",
+    "text": "個人番号は 123456789016 です。",
+    "entities": [{"type": "JP_MYNUMBER", "value": "123456789016"}],
+    "category": "positive",
+    "entity_group": "JP_MYNUMBER"
+  },
+  {
+    "id": "toy_myn_03",
+    "text": "Identification number: 999999999996 on file.",
+    "entities": [{"type": "JP_MYNUMBER", "value": "999999999996"}],
+    "category": "positive",
+    "entity_group": "JP_MYNUMBER"
+  },
+  {
+    "id": "toy_myn_04",
+    "text": "番号 234567890120 と 456789012340 の両方を確認",
+    "entities": [
+      {"type": "JP_MYNUMBER", "value": "234567890120"},
+      {"type": "JP_MYNUMBER", "value": "456789012340"}
+    ],
+    "category": "positive",
+    "entity_group": "JP_MYNUMBER"
+  },
+  {
+    "id": "toy_myn_05",
+    "text": "個人番号 800000000006",
+    "entities": [{"type": "JP_MYNUMBER", "value": "800000000006"}],
+    "category": "positive",
+    "entity_group": "JP_MYNUMBER"
+  },
+  {
+    "id": "toy_mixed_01",
+    "text": "担当: 鈴木 (suzuki@example.co.jp / 090-1234-5678)",
+    "entities": [
+      {"type": "EMAIL", "value": "suzuki@example.co.jp"},
+      {"type": "JP_MOBILE", "value": "090-1234-5678"}
+    ],
+    "category": "mixed",
+    "entity_group": "MIXED"
+  },
+  {
+    "id": "toy_mixed_02",
+    "text": "〒100-0001, email=user@example.com, card=4111111111111111",
+    "entities": [
+      {"type": "JP_ZIP", "value": "〒100-0001"},
+      {"type": "EMAIL", "value": "user@example.com"},
+      {"type": "JP_CREDIT_CARD", "value": "4111111111111111"}
+    ],
+    "category": "mixed",
+    "entity_group": "MIXED"
+  },
+  {
+    "id": "toy_mixed_03",
+    "text": "Tanaka (tanaka@example.com) phone 03-1234-5678 zip 150-0001.",
+    "entities": [
+      {"type": "EMAIL", "value": "tanaka@example.com"},
+      {"type": "JP_LANDLINE", "value": "03-1234-5678"},
+      {"type": "JP_ZIP", "value": "150-0001"}
+    ],
+    "category": "mixed",
+    "entity_group": "MIXED"
+  },
+  {
+    "id": "toy_mixed_04",
+    "text": "My number 111111111118, mobile 090-0000-1111, email a@b.jp.",
+    "entities": [
+      {"type": "JP_MYNUMBER", "value": "111111111118"},
+      {"type": "JP_MOBILE", "value": "090-0000-1111"},
+      {"type": "EMAIL", "value": "a@b.jp"}
+    ],
+    "category": "mixed",
+    "entity_group": "MIXED"
+  },
+  {
+    "id": "toy_neg_date_01",
+    "text": "本日の日付は 2024-01-15 です。",
+    "entities": [],
+    "category": "hard_negative",
+    "entity_group": "NEG"
+  },
+  {
+    "id": "toy_neg_myn_invalid",
+    "text": "注文番号 123456789012 を控えてください。",
+    "entities": [],
+    "category": "hard_negative",
+    "entity_group": "NEG"
+  },
+  {
+    "id": "toy_neg_cc_invalid",
+    "text": "適当な番号 1234567890123456 はカードではない。",
+    "entities": [],
+    "category": "hard_negative",
+    "entity_group": "NEG"
+  },
+  {
+    "id": "toy_neg_zip_too_short",
+    "text": "郵便番号っぽい 12-3456 は無効。",
+    "entities": [],
+    "category": "hard_negative",
+    "entity_group": "NEG"
+  },
+  {
+    "id": "toy_neg_company",
+    "text": "山田太郎商事 (https://example.com) は法人名です。",
+    "entities": [],
+    "category": "hard_negative",
+    "entity_group": "NEG"
+  },
+  {
+    "id": "toy_neg_pref_mention",
+    "text": "東京都は晴れ、大阪府は曇り。",
+    "entities": [],
+    "category": "hard_negative",
+    "entity_group": "NEG"
+  }
+]
