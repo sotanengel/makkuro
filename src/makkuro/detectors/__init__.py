@@ -1,6 +1,7 @@
 """Detector plugins for makkuro."""
 
 from makkuro.detectors.base import Detection, Detector
+from makkuro.detectors.iban import IBANDetector
 from makkuro.detectors.ipv4 import IPv4Detector
 from makkuro.detectors.jp_pii import (
     JPCreditCardDetector,
@@ -15,6 +16,7 @@ from makkuro.detectors.url import URLDetector
 
 DEFAULT_DETECTORS: list[Detector] = [
     EmailDetector(),
+    IBANDetector(),
     IPv4Detector(),
     URLDetector(),
     JPMobileDetector(),
@@ -30,6 +32,7 @@ __all__ = [
     "Detection",
     "Detector",
     "EmailDetector",
+    "IBANDetector",
     "IPv4Detector",
     "JPCreditCardDetector",
     "JPLandlineDetector",
