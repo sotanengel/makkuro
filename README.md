@@ -100,20 +100,27 @@ brew install --HEAD sotanengel/makkuro/makkuro
 Formula は [`Formula/makkuro.rb`](Formula/makkuro.rb) にあり、リリース
 ワークフローが tag 時に `url` / `sha256` を更新します。
 
-### pip
+### pip / uv
 
-Python 3.11 以上が必要です。
+Python 3.11 以上が必要です。配布パッケージは PyPI から `pip` でも `uv`
+でもインストールできます。
 
 ```bash
-# 通常インストール (メモリ vault 使用)
+# pip 利用時 (メモリ vault 使用)
 pip install makkuro
 
 # 永続 age 暗号化 vault を使う場合
 pip install "makkuro[age]"
 ```
 
-開発用の `pip install -e ".[dev]"` も利用できます。詳細は
-[CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+```bash
+# uv を使う場合 (推奨: 解決と hash 検証が速い)
+uv tool install makkuro                  # CLI としてグローバル導入
+uv tool install "makkuro[age]"           # age vault 付き
+```
+
+開発者向けの `uv sync --group dev` は [CONTRIBUTING.md](CONTRIBUTING.md)
+を参照してください。
 
 ---
 
@@ -300,31 +307,32 @@ PYTHONPATH=src:. python -m bench.run_eval bench/data/toy/samples.json
 ## Takumi Guard (サプライチェーン保護)
 
 makkuro は依存を最小限に保ち hash-pin していますが、それでも **新規公開
-された悪性パッケージ** が入り込むリスクは残ります。CI では
+された悪性パッケージ** が入り込むリスクは残ります。CI とローカル開発の
+両方で
 [GMO Flatt Security の Takumi Guard PyPI プロキシ](https://shisho.dev/docs/ja/t/guard/quickstart/pypi/)
-(`https://pypi.flatt.tech/simple/`) 経由で `pip install` を実行し、
-既知の悪性リリースが実行される前にブロックしています。
+(`https://pypi.flatt.tech/simple/`) 経由でパッケージを解決し、
+既知の悪性リリースが lock / install される前にブロックしています。
 
-ローカル開発でも同じ保護を有効にしたい場合は、プロジェクト用に以下の
-いずれかで opt-in できます。
+設定は `pyproject.toml` の `[[tool.uv.index]]` に宣言されているため、
+**貢献者側の追加設定は不要** です。`uv sync` / `uv lock` はプロジェクト
+ディレクトリ直下で実行するだけで自動的に Takumi Guard を経由します。
 
-```bash
-# 一時的に (現在のシェルだけ)
-export PIP_INDEX_URL=https://pypi.flatt.tech/simple/
-export PIP_EXTRA_INDEX_URL=https://pypi.org/simple/
-pip install -e ".[dev]"
+```toml
+# pyproject.toml (抜粋)
+[[tool.uv.index]]
+name = "takumi-guard"
+url = "https://pypi.flatt.tech/simple/"
+default = true
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
 ```
 
-```bash
-# このプロジェクト内だけに恒久設定
-pip config set --site global.index-url https://pypi.flatt.tech/simple/
-pip config set --site global.extra-index-url https://pypi.org/simple/
-```
-
-`extra-index-url` を併記しているのは、Takumi Guard 未提供の
-新規パッケージ (例: quarantine 期間中) を Upstream PyPI から
-フォールバック取得できるようにするためです。完全にブロック優先にしたい
-場合は `extra-index-url` を外してください。
+pypi.org も登録しているのは、Takumi Guard の quarantine 期間中で
+まだ配信されていない新規パッケージをフォールバックで取得できる
+ようにするためです。ハッシュは `uv.lock` で固定されるので、どちらの
+経路でも再現性は保たれます。
 
 ---
 
@@ -333,10 +341,14 @@ pip config set --site global.extra-index-url https://pypi.org/simple/
 ```bash
 git clone https://github.com/sotanengel/makkuro.git
 cd makkuro
-pip install -e ".[dev]"
-pytest
-ruff check src tests bench
+uv sync --frozen --group dev   # uv.lock に基づき再現可能に環境を構築
+uv run pytest
+uv run ruff check src tests bench
 ```
+
+`uv` が未インストールの場合は
+[公式手順](https://docs.astral.sh/uv/getting-started/installation/) で
+導入してください (`curl -LsSf https://astral.sh/uv/install.sh | sh`)。
 
 貢献ガイドラインは [CONTRIBUTING.md](CONTRIBUTING.md)、
 コミュニティ規範は [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) を参照してください。

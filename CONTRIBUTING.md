@@ -16,32 +16,40 @@
 
 ## 開発環境のセットアップ
 
-Python 3.11 以上が必要です。
+Python 3.11 以上と [uv](https://docs.astral.sh/uv/) が必要です。uv が
+未導入なら
+`curl -LsSf https://astral.sh/uv/install.sh | sh` で入れてください。
 
 ```bash
 git clone https://github.com/sotanengel/makkuro.git
 cd makkuro
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-pytest           # 109本 ほど
-ruff check src tests bench scripts
+uv sync --frozen --group dev     # uv.lock から再現可能に環境を構築
+uv run pytest                    # 109本 ほど
+uv run ruff check src tests bench scripts
 ```
 
-### Takumi Guard (推奨)
+仮想環境は `.venv/` に自動作成されます (`source .venv/bin/activate` で
+従来どおり明示的に activate することも可能)。
 
-CI は既知の悪性 PyPI パッケージをインストール前にブロックするため、
-[Takumi Guard PyPI プロキシ](https://shisho.dev/docs/ja/t/guard/quickstart/pypi/)
-(`https://pypi.flatt.tech/simple/`) 経由で `pip install` を実行しています。
-ローカルでも同じ保護を有効にするには、依存を入れる前にシェルへ以下を
-通してください:
+### 依存を追加 / 更新したとき
+
+`pyproject.toml` を編集したあとは必ず `uv.lock` を再生成してコミット
+してください:
 
 ```bash
-export PIP_INDEX_URL=https://pypi.flatt.tech/simple/
-export PIP_EXTRA_INDEX_URL=https://pypi.org/simple/
-pip install -e ".[dev]"
+uv lock                          # pyproject.toml の変更をロックに反映
+uv sync --group dev              # ローカル環境にも反映
 ```
 
-詳しくは [README の Takumi Guard セクション](README.md#takumi-guard-サプライチェーン保護) を参照。
+### Takumi Guard について
+
+`pip install` / `uv sync` はいずれも
+[Takumi Guard PyPI プロキシ](https://shisho.dev/docs/ja/t/guard/quickstart/pypi/)
+(`https://pypi.flatt.tech/simple/`) を経由します。設定は
+`pyproject.toml` の `[[tool.uv.index]]` に宣言済みで、貢献者側の追加
+設定は不要です。詳しくは
+[README の Takumi Guard セクション](README.md#takumi-guard-サプライチェーン保護)
+を参照。
 
 ## ブランチ / PR の流れ
 

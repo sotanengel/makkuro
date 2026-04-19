@@ -8,11 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`uv` as the canonical dependency manager.** `pyproject.toml` now
+  declares dev deps under `[dependency-groups]` (PEP 735) and pins both
+  the Takumi Guard and the PyPI fallback indexes via `[[tool.uv.index]]`.
+  A committed `uv.lock` makes CI reproducible.
 - **Takumi Guard PyPI proxy** wired into `ci.yml` and `security.yml`:
   `pip install` now routes through `https://pypi.flatt.tech/simple/` so
   known-malicious releases are blocked before CI executes them.
   Contributor-facing opt-in steps are documented in README and
   CONTRIBUTING.
+
+### Changed
+- CI workflows (`ci.yml`, `security.yml`, `release.yml`) now use
+  `astral-sh/setup-uv` and `uv sync --frozen` / `uvx` in place of
+  `python -m pip install`. `python -m build` at release time becomes
+  `uv build`.
+- README and CONTRIBUTING updated to document `uv sync --group dev` and
+  `uv run pytest` as the primary development flow.
 - First-class `brew` install path. `Formula/makkuro.rb` ships in-repo
   using `Language::Python::Virtualenv`; consumers do
   `brew tap sotanengel/makkuro https://github.com/sotanengel/makkuro.git`
