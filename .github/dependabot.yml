@@ -1,0 +1,36 @@
+version: 2
+
+# Per spec SC-2.4: every Dependabot PR must be reviewed by a human and merged
+# manually. We never enable auto-merge, and a freshly published version sits
+# for the SC-2.5 cooling period before being accepted.
+
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - needs-security-review
+    commit-message:
+      prefix: deps
+      prefix-development: deps-dev
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    labels:
+      - github-actions
+      - needs-security-review
+    commit-message:
+      prefix: ci
