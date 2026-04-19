@@ -36,12 +36,14 @@ class Redactor:
         mint: PlaceholderMint | None = None,
         audit: AuditWriter | None = None,
         allow_list: AllowList | None = None,
+        min_score: float = 0.0,
     ) -> None:
         self.vault = vault
         self.detectors = detectors if detectors is not None else list(DEFAULT_DETECTORS)
         self.mint = mint if mint is not None else PlaceholderMint()
         self.audit = audit
         self.allow_list = allow_list if allow_list is not None else AllowList()
+        self.min_score = min_score
         self.stats = RedactionStats()
         self._request_id: str = ""
 
@@ -56,6 +58,8 @@ class Redactor:
             return text
         detections = run_detectors(self.detectors, text)
         detections = self.allow_list.filter(detections)
+        if self.min_score > 0.0:
+            detections = [d for d in detections if d.score >= self.min_score]
         if not detections:
             return text
         redacted = substitute(text, detections, self.mint)

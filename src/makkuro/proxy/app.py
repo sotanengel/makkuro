@@ -296,7 +296,13 @@ def build_app(
         if config.redaction.custom_patterns:
             detectors.extend(make_custom_detectors(config.redaction.custom_patterns))
         allow_list = AllowList.from_dict(config.redaction.allow_list)
-        redactor = Redactor(vault, detectors=detectors, audit=audit, allow_list=allow_list)
+        redactor = Redactor(
+            vault,
+            detectors=detectors,
+            audit=audit,
+            allow_list=allow_list,
+            min_score=config.redaction.min_score,
+        )
     egress = build_async_client(
         allowed_hosts=config.upstream_hosts,
         timeout=float(config.proxy.request_timeout_sec),
