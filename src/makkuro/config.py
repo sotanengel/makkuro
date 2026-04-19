@@ -33,6 +33,7 @@ class ProxyConfig:
 class RedactionConfig:
     mode: str = "mask"  # mask | block | warn
     rehydrate: bool = True
+    min_score: float = 0.0  # discard detections below this threshold
     custom_patterns: dict[str, str] = field(default_factory=dict)
     allow_list: dict[str, list[str]] = field(default_factory=dict)
 
@@ -124,6 +125,11 @@ def load_from_dict(data: dict[str, Any], base: Config | None = None) -> Config:
         cfg.redaction.mode = mode
     if "rehydrate" in redaction:
         cfg.redaction.rehydrate = bool(redaction["rehydrate"])
+    if "min_score" in redaction:
+        val = float(redaction["min_score"])
+        if not 0.0 <= val <= 1.0:
+            raise ValueError(f"redaction.min_score must be in [0,1], got {val}")
+        cfg.redaction.min_score = val
     custom_patterns = redaction.get("custom_patterns") or {}
     if isinstance(custom_patterns, dict):
         cfg.redaction.custom_patterns = {
