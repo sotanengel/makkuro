@@ -33,6 +33,7 @@ class ProxyConfig:
 class RedactionConfig:
     mode: str = "mask"  # mask | block | warn
     rehydrate: bool = True
+    response_redaction: bool = False  # redact PII found in provider responses
     min_score: float = 0.0  # discard detections below this threshold
     custom_patterns: dict[str, str] = field(default_factory=dict)
     allow_list: dict[str, list[str]] = field(default_factory=dict)
@@ -125,6 +126,8 @@ def load_from_dict(data: dict[str, Any], base: Config | None = None) -> Config:
         cfg.redaction.mode = mode
     if "rehydrate" in redaction:
         cfg.redaction.rehydrate = bool(redaction["rehydrate"])
+    if "response_redaction" in redaction:
+        cfg.redaction.response_redaction = bool(redaction["response_redaction"])
     if "min_score" in redaction:
         val = float(redaction["min_score"])
         if not 0.0 <= val <= 1.0:
