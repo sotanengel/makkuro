@@ -1,0 +1,171 @@
+name: release
+
+# Per spec SC-3 / SC-4 / SC-5: build, sign, attest, SBOM, publish.
+#
+# Trigger: pushing an annotated tag of the shape vMAJOR.MINOR.PATCH.
+# The flow is:
+#   1. build       -- builds sdist + wheels in an isolated runner.
+#   2. sbom        -- emits a CycloneDX SBOM and attaches it to the release.
+#   3. sign        -- Sigstore/cosign over every artifact, with attestations.
+#   4. publish     -- uploads to PyPI via Trusted Publishing (PEP 740 / OIDC),
+#                     gated on the `release` environment which requires a
+#                     separate human approver (SC-3.3).
+#   5. github      -- attaches the signed artifacts + SBOM to the GitHub
+#                     Release, links to the transparency log.
+#
+# No long-lived PyPI tokens live in the repo. No self-hosted runners --
+# GitHub-hosted `ubuntu-latest` gives us SLSA Build L3 eligibility.
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      version: ${{ steps.vars.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - id: vars
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "build==1.2.2" "hatchling==1.27.0"
+      - name: Build sdist + wheel (hermetic)
+        env:
+          SOURCE_DATE_EPOCH: "1700000000"
+          PYTHONHASHSEED: "0"
+        run: python -m build
+      - name: Generate SLSA build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: "dist/*"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  sbom:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install CycloneDX generator
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "cyclonedx-bom==5.3.0"
+      - name: Generate CycloneDX SBOM
+        run: |
+          python -m cyclonedx_py environment --output-format JSON --output-file SBOM.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: SBOM.json
+          retention-days: 7
+
+  sign:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: sigstore/gh-action-sigstore-python@v3.0.1
+        with:
+          inputs: "dist/*"
+          release-signing-artifacts: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-signed
+          path: dist/
+          retention-days: 7
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [build, sbom, sign]
+    # SC-3.3: the `release` environment is protected with a manual approval
+    # gate. A reviewer that is NOT the tag pusher must approve before this
+    # job runs.
+    environment:
+      name: release
+      url: https://pypi.org/project/makkuro/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-signed
+          path: dist
+      - name: Publish to PyPI via Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # No `password:` — we use OIDC Trusted Publishing (SC-3.1).
+          attestations: true
+
+  github-release:
+    runs-on: ubuntu-latest
+    needs: [publish, sbom]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-signed
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: sbom
+          path: sbom
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*
+            sbom/SBOM.json
+          body: |
+            Signed with Sigstore. Verify with:
+
+            ```bash
+            python -m pip install sigstore
+            python -m sigstore verify identity \
+              --cert-identity "https://github.com/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}" \
+              --cert-oidc-issuer "https://token.actions.githubusercontent.com" \
+              dist/makkuro-*.whl
+            ```
+
+            CycloneDX SBOM: `SBOM.json`
