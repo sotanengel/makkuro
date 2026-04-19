@@ -116,10 +116,15 @@ class AnthropicAdapter:
                         # text block; multi-block system messages are rare and
                         # will still pass through correctly since upstream
                         # joins them.
-                        new_block = dict(block)
-                        new_block["text"] = remaining
-                        rebuilt.append(new_block)
-                        remaining = ""
+                        if remaining:
+                            new_block = dict(block)
+                            new_block["text"] = remaining
+                            rebuilt.append(new_block)
+                            remaining = ""
+                        else:
+                            # Drop empty text blocks to avoid API errors
+                            # (cache_control on empty text is rejected).
+                            pass
                     else:
                         rebuilt.append(block)
                 out["system"] = rebuilt
