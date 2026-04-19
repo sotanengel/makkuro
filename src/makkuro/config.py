@@ -33,6 +33,8 @@ class ProxyConfig:
 class RedactionConfig:
     mode: str = "mask"  # mask | block | warn
     rehydrate: bool = True
+    custom_patterns: dict[str, str] = field(default_factory=dict)
+    allow_list: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -122,6 +124,18 @@ def load_from_dict(data: dict[str, Any], base: Config | None = None) -> Config:
         cfg.redaction.mode = mode
     if "rehydrate" in redaction:
         cfg.redaction.rehydrate = bool(redaction["rehydrate"])
+    custom_patterns = redaction.get("custom_patterns") or {}
+    if isinstance(custom_patterns, dict):
+        cfg.redaction.custom_patterns = {
+            str(k): str(v) for k, v in custom_patterns.items() if isinstance(v, str)
+        }
+    allow_list = redaction.get("allow_list") or {}
+    if isinstance(allow_list, dict):
+        cfg.redaction.allow_list = {
+            str(k): [str(x) for x in v if isinstance(x, str)]
+            for k, v in allow_list.items()
+            if isinstance(v, list)
+        }
 
     sec = data.get("security") or {}
     if "network_allowlist_strict" in sec:

@@ -25,8 +25,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from makkuro.allowlist import AllowList
 from makkuro.audit import AuditWriter
 from makkuro.config import Config
+from makkuro.detectors import DEFAULT_DETECTORS
+from makkuro.detectors.custom import make_custom_detectors
 from makkuro.protocol import (
     AnthropicAdapter,
     GeminiAdapter,
@@ -217,7 +220,13 @@ def build_app(
     vault = vault if vault is not None else MemoryVault()
     if audit is None:
         audit = AuditWriter(path=None, enabled=False)
-    redactor = redactor if redactor is not None else Redactor(vault, audit=audit)
+    if redactor is None:
+        # Compose the detector chain: built-ins + any user-defined patterns.
+        detectors = list(DEFAULT_DETECTORS)
+        if config.redaction.custom_patterns:
+            detectors.extend(make_custom_detectors(config.redaction.custom_patterns))
+        allow_list = AllowList.from_dict(config.redaction.allow_list)
+        redactor = Redactor(vault, detectors=detectors, audit=audit, allow_list=allow_list)
     egress = build_async_client(
         allowed_hosts=config.upstream_hosts,
         timeout=float(config.proxy.request_timeout_sec),
