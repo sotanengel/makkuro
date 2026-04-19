@@ -25,7 +25,7 @@ _FULL_RE = re.compile(r"<MAKKURO_[A-Z0-9_]+_[0-9a-f]{8}>")
 
 # Anything that could be a partial placeholder prefix. We only need to hold
 # back suffixes that look like they could still become a full placeholder.
-_PARTIAL_RE = re.compile(r"<(?:M(?:A(?:K(?:K(?:U(?:R(?:O(?:_[A-Z0-9_]*)?)?)?)?)?)?)?)?$")
+_PARTIAL_RE = re.compile(r"<(?:M(?:A(?:K(?:K(?:U(?:R(?:O(?:_[A-Z0-9a-f_]*)?)?)?)?)?)?)?)?$")
 
 
 class SSERehydrator:
