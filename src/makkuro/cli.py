@@ -22,6 +22,7 @@ from pathlib import Path
 from makkuro import __version__
 from makkuro.config import load as load_config
 from makkuro.detectors import DEFAULT_DETECTORS
+from makkuro.integrity import verify as verify_integrity
 from makkuro.pipeline import run_detectors
 from makkuro.placeholder import PlaceholderMint, substitute
 from makkuro.policy import validate as validate_policy
@@ -122,6 +123,21 @@ def _cmd_policy_validate(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_verify(_: argparse.Namespace) -> int:
+    report = verify_integrity()
+    print(report.summary())
+    if report.modified:
+        for rel in report.modified:
+            print(f"  modified: {rel}", file=sys.stderr)
+    if report.missing:
+        for rel in report.missing:
+            print(f"  missing:  {rel}", file=sys.stderr)
+    if report.unexpected:
+        for rel in report.unexpected:
+            print(f"  extra:    {rel}", file=sys.stderr)
+    return 0 if report.ok else 1
+
+
 def _cmd_audit_tail(args: argparse.Namespace) -> int:
     path = Path(args.path)
     if not path.exists():
@@ -162,6 +178,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_ins.add_argument("tool", choices=sorted(_INSTALL_SNIPPETS))
     p_ins.add_argument("--port", type=int, default=8787)
     p_ins.set_defaults(func=_cmd_install)
+
+    p_ver_cmd = sub.add_parser("verify", help="self-integrity check (SC-7)")
+    p_ver_cmd.set_defaults(func=_cmd_verify)
 
     p_pol = sub.add_parser("policy", help="policy tools")
     pol_sub = p_pol.add_subparsers(dest="policy_command", required=True)
