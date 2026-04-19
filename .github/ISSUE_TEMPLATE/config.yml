@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: セキュリティ脆弱性の報告
+    url: https://github.com/sotanengel/makkuro/security/advisories/new
+    about: 公開 Issue ではなく GitHub Security Advisory からお願いします。
+  - name: 質問・議論
+    url: https://github.com/sotanengel/makkuro/discussions
+    about: 仕様相談や使い方の質問は Discussions へ。

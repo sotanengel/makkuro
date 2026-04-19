@@ -1,0 +1,82 @@
+# makkuro 設定ファイル サンプル
+#
+# 配置場所 (先に見つかった順に採用):
+#   1. --config で指定したパス
+#   2. ./.makkuro.toml
+#   3. $XDG_CONFIG_HOME/makkuro/config.toml
+#   4. ~/.config/makkuro/config.toml
+#
+# 検証: `makkuro policy validate path/to/this/file`
+#
+# すべてのキーは省略可能。省略時は `makkuro doctor` が示すデフォルトが使われます。
+
+schema_version = 1
+
+# -- プロキシ本体 ------------------------------------------------------------
+
+[proxy]
+port = 8787
+bind = "127.0.0.1"            # ループバック以外にしたい場合は環境変数
+                              # MAKKURO_ALLOW_PUBLIC_BIND=1 の明示が必要
+request_timeout_sec = 120
+max_body_mb = 16
+
+# -- 検出・置換の振る舞い -----------------------------------------------------
+
+[redaction]
+mode = "mask"                 # "mask" (デフォルト) / "block" / "warn"
+rehydrate = true              # 応答中の placeholder を元の値に戻す
+
+# 追加したいユーザ定義パターン (名前 = 正規表現)
+[redaction.custom_patterns]
+# EMPLOYEE_ID = "EMP-[0-9]{6}"
+
+# 検出しても redact しない例外リスト (type 名 -> リテラル値)
+[redaction.allow_list]
+# EMAIL = ["press@example.com"]
+
+# -- 監査ログ ----------------------------------------------------------------
+
+[audit]
+enabled = true
+# path = "/var/log/makkuro/audit.jsonl"
+# 省略時は $XDG_STATE_HOME/makkuro/audit.jsonl
+level = "info"                # debug / info / warn / error
+
+# -- セキュリティ -------------------------------------------------------------
+
+[security]
+network_allowlist_strict = true   # 未登録 upstream を即拒否
+integrity_check = false           # リリース版で true 推奨 (SC-7)
+
+# -- プロバイダ (upstream は allow-list でもある) -----------------------------
+
+[providers.anthropic]
+upstream = "https://api.anthropic.com"
+protocol = "anthropic"
+enabled = true
+
+[providers.openai]
+upstream = "https://api.openai.com"
+protocol = "openai"
+enabled = true
+
+[providers.gemini]
+upstream = "https://generativelanguage.googleapis.com"
+protocol = "gemini"
+enabled = true
+
+# OpenAI 互換エンドポイントに差し替える例:
+# [providers.azure_openai]
+# upstream = "https://my-resource.openai.azure.com"
+# protocol = "openai"
+# enabled = true
+
+# -- 永続 vault (任意, `pip install "makkuro[age]"` が必要) -------------------
+
+# [vault]
+# backend = "age"              # "memory" (デフォルト) / "age" / "keychain"
+# path = "~/.local/share/makkuro/vault.age"
+# identity_path = "~/.config/makkuro/age.key"
+# purge_after_days = 7
+# rotate_reminder_days = 90
