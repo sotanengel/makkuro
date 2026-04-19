@@ -11,63 +11,53 @@ on:
   pull_request:
     paths:
       - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/security.yml"
 
 permissions:
   contents: read
-
-# Route pip installs through Takumi Guard so known-malicious PyPI releases are
-# blocked before any dependency executes in CI. See SECURITY.md.
-env:
-  PIP_INDEX_URL: https://pypi.flatt.tech/simple/
-  PIP_EXTRA_INDEX_URL: https://pypi.org/simple/
 
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.13"
-      - name: Install runtime deps (without the editable project)
-        # We install the project's runtime deps as declared in pyproject.toml
-        # but NOT makkuro itself. `pip install -e .` would install makkuro,
-        # which pip-audit --strict then tries (and fails) to look up on PyPI
-        # before the first release.
+          version: "0.8.17"
+          enable-cache: true
+      - name: Export runtime deps to requirements.txt
+        # We audit the project's runtime deps as declared in pyproject.toml
+        # but NOT makkuro itself: pip-audit --strict would try (and fail) to
+        # look up makkuro on PyPI before the first release. `uv export`
+        # resolves against uv.lock and excludes the project itself.
         run: |
-          python -m pip install --upgrade pip
-          python -c "
-          import pathlib, tomllib
-          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
-          print('\n'.join(data['project']['dependencies']))
-          " > runtime-requirements.txt
-          python -m pip install -r runtime-requirements.txt
-          python -m pip install pip-audit==2.9.0
+          uv export --frozen --no-hashes --no-dev --no-emit-project \
+            -o runtime-requirements.txt
+          cat runtime-requirements.txt
       - name: pip-audit
-        run: python -m pip_audit --strict --progress-spinner off
+        run: |
+          uvx --from "pip-audit==2.9.0" \
+            pip-audit --strict --progress-spinner off \
+            -r runtime-requirements.txt
 
   osv:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.13"
-      - name: Resolve runtime deps to requirements.txt
-        # osv-scanner doesn't parse pyproject.toml. We resolve our runtime
-        # deps (direct + transitive) into a requirements.txt shape and feed
-        # that in via --lockfile.
+          version: "0.8.17"
+          enable-cache: true
+      - name: Export resolved runtime deps for osv-scanner
+        # osv-scanner doesn't parse pyproject.toml or uv.lock directly. We
+        # export uv.lock to a requirements.txt shape and feed that in via
+        # --lockfile.
         run: |
-          python -m pip install --upgrade pip
-          python -c "
-          import pathlib, tomllib
-          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
-          print('\n'.join(data['project']['dependencies']))
-          " > /tmp/runtime-deps.txt
-          python -m venv /tmp/resolveenv
-          /tmp/resolveenv/bin/pip install --quiet -r /tmp/runtime-deps.txt
-          /tmp/resolveenv/bin/pip freeze > requirements-osv.txt
+          uv export --frozen --no-hashes --no-dev --no-emit-project \
+            -o requirements-osv.txt
           cat requirements-osv.txt
       - name: Install osv-scanner
         run: |
@@ -80,12 +70,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.13"
-      - name: Install bandit
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "bandit[toml]==1.8.0"
+          version: "0.8.17"
+          enable-cache: true
       - name: Run bandit
-        run: python -m bandit -r src -ll
+        run: uvx --from "bandit[toml]==1.8.0" bandit -r src -ll

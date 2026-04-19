@@ -8,12 +8,6 @@ on:
 permissions:
   contents: read
 
-# Route pip installs through Takumi Guard so known-malicious PyPI releases are
-# blocked before any dependency executes in CI. See SECURITY.md.
-env:
-  PIP_INDEX_URL: https://pypi.flatt.tech/simple/
-  PIP_EXTRA_INDEX_URL: https://pypi.org/simple/
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -22,20 +16,26 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install dev dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          version: "0.8.17"
+          enable-cache: true
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Sync dev environment (locked)
+        # --frozen refuses to update the lock; CI must match uv.lock exactly.
+        # Takumi Guard routing is declared in [[tool.uv.index]] in
+        # pyproject.toml, so no env vars are needed here.
+        run: uv sync --frozen --group dev --python ${{ matrix.python-version }}
       - name: Lint
-        run: python -m ruff check src tests bench
+        run: uv run ruff check src tests bench
       - name: Test
-        run: python -m pytest
+        run: uv run pytest
       - name: Toy benchmark
-        run: |
-          PYTHONPATH=src:. python -m bench.run_eval bench/data/toy/samples.json
+        env:
+          PYTHONPATH: src:.
+        run: uv run python -m bench.run_eval bench/data/toy/samples.json
 
   formula:
     # Ensures Formula/makkuro.rb resources stay in sync with what the update
@@ -44,8 +44,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.13"
+          version: "0.8.17"
       - name: Check Formula resources are fresh
-        run: python scripts/update_formula.py --check
+        run: uv run --python 3.13 --no-project python scripts/update_formula.py --check

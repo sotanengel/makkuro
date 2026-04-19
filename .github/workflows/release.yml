@@ -50,15 +50,18 @@ jobs:
         run: |
           tag="${GITHUB_REF#refs/tags/}"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
-      - name: Install build tooling
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "build==1.2.2" "hatchling==1.27.0"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.8.17"
       - name: Build sdist + wheel (hermetic)
         env:
           SOURCE_DATE_EPOCH: "1700000000"
           PYTHONHASHSEED: "0"
-        run: python -m build
+        # `uv build` calls the declared PEP 517 backend (hatchling) in an
+        # isolated build environment, matching the previous `python -m build`
+        # behaviour but without a pip bootstrap.
+        run: uv build
       - name: Generate SLSA build provenance
         uses: actions/attest-build-provenance@v1
         with:
@@ -77,16 +80,18 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.13"
-      - name: Install CycloneDX generator
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "cyclonedx-bom==5.3.0"
+          version: "0.8.17"
       - name: Generate CycloneDX SBOM
+        # `uv sync --frozen` materialises the exact runtime closure from
+        # uv.lock so cyclonedx-bom's "environment" scanner sees the same
+        # versions the release was built against.
         run: |
-          python -m cyclonedx_py environment --output-format JSON --output-file SBOM.json
+          uv sync --frozen --no-dev
+          uv run --with "cyclonedx-bom==5.3.0" \
+            python -m cyclonedx_py environment --output-format JSON --output-file SBOM.json
       - uses: actions/upload-artifact@v4
         with:
           name: sbom
@@ -149,9 +154,10 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.13"
+          version: "0.8.17"
       - name: Compute source tarball sha256
         id: tarball
         run: |
@@ -168,7 +174,7 @@ jobs:
           URL: ${{ steps.tarball.outputs.url }}
           SHA: ${{ steps.tarball.outputs.sha }}
         run: |
-          python - <<'PY'
+          uv run --no-project --python 3.13 python - <<'PY'
           import os, pathlib, re
           f = pathlib.Path("Formula/makkuro.rb")
           t = f.read_text()
@@ -179,7 +185,7 @@ jobs:
           f.write_text(t)
           PY
       - name: Refresh PyPI resources
-        run: python scripts/update_formula.py
+        run: uv run --no-project --python 3.13 python scripts/update_formula.py
       - name: Commit & push
         run: |
           git config user.name "github-actions[bot]"
