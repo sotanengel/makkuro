@@ -27,6 +27,7 @@ class ProxyConfig:
     bind: str = "127.0.0.1"
     request_timeout_sec: int = 120
     max_body_mb: int = 16
+    shutdown_timeout_sec: int = 5
 
 
 @dataclass
@@ -117,6 +118,11 @@ def load_from_dict(data: dict[str, Any], base: Config | None = None) -> Config:
         cfg.proxy.request_timeout_sec = int(proxy["request_timeout_sec"])
     if "max_body_mb" in proxy:
         cfg.proxy.max_body_mb = int(proxy["max_body_mb"])
+    if "shutdown_timeout_sec" in proxy:
+        val = int(proxy["shutdown_timeout_sec"])
+        if not 0 <= val <= 300:
+            raise ValueError(f"proxy.shutdown_timeout_sec must be in [0,300], got {val}")
+        cfg.proxy.shutdown_timeout_sec = val
 
     redaction = data.get("redaction") or {}
     if "mode" in redaction:
