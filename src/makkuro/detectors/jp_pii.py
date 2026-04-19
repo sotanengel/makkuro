@@ -75,7 +75,7 @@ def mynumber_check_valid(digits: str) -> bool:
         return False
     body = [ord(c) - 48 for c in digits[:11]]
     check = ord(digits[11]) - 48
-    s = sum(d * w for d, w in zip(body[::-1], _MYNUMBER_WEIGHTS))
+    s = sum(d * w for d, w in zip(body[::-1], _MYNUMBER_WEIGHTS, strict=False))
     rem = s % 11
     expected = 0 if rem <= 1 else 11 - rem
     return expected == check
