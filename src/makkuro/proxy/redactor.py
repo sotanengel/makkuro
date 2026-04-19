@@ -80,7 +80,37 @@ class Redactor:
             for block in msg.content_blocks:
                 if block.type == "text" and block.text is not None:
                     block.text = self.redact_text(block.text)
+                elif block.type == "tool_use" and block.tool_input is not None:
+                    block.tool_input = self._redact_json(block.tool_input)
+                elif block.type == "tool_result":
+                    block.tool_output = self._redact_json(block.tool_output)
         return canonical
+
+    # ---- MCP deep-redact ----
+
+    # JSON-RPC control fields that are always pass-through; never descend into
+    # them so a tool name, id, or method with secret-looking entropy stays put.
+    _CONTROL_KEYS = frozenset({"jsonrpc", "id", "method", "tool_use_id"})
+
+    def _redact_json(self, value: object) -> object:
+        """Recursively redact string leaves of an arbitrary JSON payload.
+
+        Control fields in :attr:`_CONTROL_KEYS` are left untouched so the
+        protocol stays legal.
+        """
+        if isinstance(value, str):
+            return self.redact_text(value)
+        if isinstance(value, list):
+            return [self._redact_json(v) for v in value]
+        if isinstance(value, dict):
+            out: dict[str, object] = {}
+            for k, v in value.items():
+                if k in self._CONTROL_KEYS:
+                    out[k] = v
+                else:
+                    out[k] = self._redact_json(v)
+            return out
+        return value
 
     # ---- response path ----
 

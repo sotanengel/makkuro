@@ -64,9 +64,15 @@ def _cmd_test(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_doctor(_: argparse.Namespace) -> int:
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    cfg_path = Path(args.config) if getattr(args, "config", None) else None
+    cfg = load_config(cfg_path)
     print(f"makkuro {__version__}")
     print(f"python {sys.version.split()[0]}")
+    print(f"bind: {cfg.proxy.bind}:{cfg.proxy.port}")
+    print(f"mode: {cfg.redaction.mode}  rehydrate: {cfg.redaction.rehydrate}")
+    print(f"upstream_hosts: {sorted(cfg.upstream_hosts)}")
+    print(f"audit: {'on' if cfg.audit.enabled else 'off'}  path: {cfg.audit.path or '-'}")
     print(f"detectors: {len(DEFAULT_DETECTORS)} enabled")
     for d in DEFAULT_DETECTORS:
         print(f"  - {d.name}")
@@ -143,6 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_test.set_defaults(func=_cmd_test)
 
     p_doc = sub.add_parser("doctor", help="report loaded detectors and environment")
+    p_doc.add_argument("--config", help="path to a TOML config file")
     p_doc.set_defaults(func=_cmd_doctor)
 
     p_start = sub.add_parser("start", help="start the proxy in the foreground")

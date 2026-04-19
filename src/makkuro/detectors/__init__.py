@@ -9,6 +9,7 @@ from makkuro.detectors.jp_pii import (
     JPZipDetector,
 )
 from makkuro.detectors.regex_base import EmailDetector
+from makkuro.detectors.secrets import make_secret_detectors
 
 DEFAULT_DETECTORS: list[Detector] = [
     EmailDetector(),
@@ -17,6 +18,7 @@ DEFAULT_DETECTORS: list[Detector] = [
     JPZipDetector(),
     JPCreditCardDetector(),
     JPMyNumberDetector(),
+    *make_secret_detectors(),
 ]
 
 __all__ = [
@@ -29,4 +31,5 @@ __all__ = [
     "JPMobileDetector",
     "JPMyNumberDetector",
     "JPZipDetector",
+    "make_secret_detectors",
 ]
