@@ -296,7 +296,20 @@ def build_app(
     """
     vault = vault if vault is not None else MemoryVault()
     if audit is None:
-        audit = AuditWriter(path=None, enabled=False)
+        if config.audit.enabled:
+            import os
+            from pathlib import Path
+
+            if config.audit.path:
+                audit_path = Path(config.audit.path)
+            else:
+                state_dir = Path(
+                    os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")
+                )
+                audit_path = state_dir / "makkuro" / "audit.jsonl"
+            audit = AuditWriter(path=audit_path, enabled=True)
+        else:
+            audit = AuditWriter(path=None, enabled=False)
     if redactor is None:
         # Compose the detector chain: built-ins + any user-defined patterns.
         detectors = list(DEFAULT_DETECTORS)
