@@ -11,10 +11,12 @@ from makkuro.detectors.jp_pii import (
 )
 from makkuro.detectors.regex_base import EmailDetector
 from makkuro.detectors.secrets import make_secret_detectors
+from makkuro.detectors.url import URLDetector
 
 DEFAULT_DETECTORS: list[Detector] = [
     EmailDetector(),
     IPv4Detector(),
+    URLDetector(),
     JPMobileDetector(),
     JPLandlineDetector(),
     JPZipDetector(),
@@ -34,5 +36,6 @@ __all__ = [
     "JPMobileDetector",
     "JPMyNumberDetector",
     "JPZipDetector",
+    "URLDetector",
     "make_secret_detectors",
 ]
