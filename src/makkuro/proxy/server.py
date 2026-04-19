@@ -43,4 +43,5 @@ def run(config: Config) -> None:
         port=config.proxy.port,
         log_level="info",
         access_log=False,
+        timeout_graceful_shutdown=config.proxy.shutdown_timeout_sec,
     )
