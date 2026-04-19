@@ -27,6 +27,22 @@ pytest           # 109本 ほど
 ruff check src tests bench scripts
 ```
 
+### Takumi Guard (推奨)
+
+CI は既知の悪性 PyPI パッケージをインストール前にブロックするため、
+[Takumi Guard PyPI プロキシ](https://shisho.dev/docs/ja/t/guard/quickstart/pypi/)
+(`https://pypi.flatt.tech/simple/`) 経由で `pip install` を実行しています。
+ローカルでも同じ保護を有効にするには、依存を入れる前にシェルへ以下を
+通してください:
+
+```bash
+export PIP_INDEX_URL=https://pypi.flatt.tech/simple/
+export PIP_EXTRA_INDEX_URL=https://pypi.org/simple/
+pip install -e ".[dev]"
+```
+
+詳しくは [README の Takumi Guard セクション](README.md#takumi-guard-サプライチェーン保護) を参照。
+
 ## ブランチ / PR の流れ
 
 1. `main` から作業ブランチを切る (`feat/<短い名前>` / `fix/<短い名前>` 推奨)。

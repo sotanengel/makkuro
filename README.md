@@ -73,6 +73,7 @@ makkuro test "連絡先 foo@example.com / 090-1234-5678 まで"
 - [監査ログ](#監査ログ)
 - [暗号化 vault (任意)](#暗号化-vault-任意)
 - [ベンチマーク](#ベンチマーク)
+- [Takumi Guard (サプライチェーン保護)](#takumi-guard-サプライチェーン保護)
 - [開発](#開発)
 - [詳しい仕組みとユースケース](#詳しい仕組みとユースケース)
 - [セキュリティ](#セキュリティ)
@@ -293,6 +294,37 @@ purge_after_days = 7
 ```bash
 PYTHONPATH=src:. python -m bench.run_eval bench/data/toy/samples.json
 ```
+
+---
+
+## Takumi Guard (サプライチェーン保護)
+
+makkuro は依存を最小限に保ち hash-pin していますが、それでも **新規公開
+された悪性パッケージ** が入り込むリスクは残ります。CI では
+[GMO Flatt Security の Takumi Guard PyPI プロキシ](https://shisho.dev/docs/ja/t/guard/quickstart/pypi/)
+(`https://pypi.flatt.tech/simple/`) 経由で `pip install` を実行し、
+既知の悪性リリースが実行される前にブロックしています。
+
+ローカル開発でも同じ保護を有効にしたい場合は、プロジェクト用に以下の
+いずれかで opt-in できます。
+
+```bash
+# 一時的に (現在のシェルだけ)
+export PIP_INDEX_URL=https://pypi.flatt.tech/simple/
+export PIP_EXTRA_INDEX_URL=https://pypi.org/simple/
+pip install -e ".[dev]"
+```
+
+```bash
+# このプロジェクト内だけに恒久設定
+pip config set --site global.index-url https://pypi.flatt.tech/simple/
+pip config set --site global.extra-index-url https://pypi.org/simple/
+```
+
+`extra-index-url` を併記しているのは、Takumi Guard 未提供の
+新規パッケージ (例: quarantine 期間中) を Upstream PyPI から
+フォールバック取得できるようにするためです。完全にブロック優先にしたい
+場合は `extra-index-url` を外してください。
 
 ---
 
