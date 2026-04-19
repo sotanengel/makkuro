@@ -26,7 +26,20 @@
       "properties": {
         "mode": {"type": "string", "enum": ["mask", "block", "warn"], "default": "mask"},
         "rehydrate": {"type": "boolean", "default": true},
-        "response_redaction": {"type": "boolean", "default": false}
+        "response_redaction": {"type": "boolean", "default": false},
+        "custom_patterns": {
+          "type": "object",
+          "description": "Name -> Python regex. Matches are redacted as the given type name.",
+          "additionalProperties": {"type": "string"}
+        },
+        "allow_list": {
+          "type": "object",
+          "description": "Detection type -> list of literal values to leave untouched even if detected.",
+          "additionalProperties": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
       }
     },
     "audit": {

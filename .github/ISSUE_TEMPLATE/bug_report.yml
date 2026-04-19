@@ -1,0 +1,56 @@
+name: バグ報告
+description: 再現可能な不具合を報告する
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        セキュリティ脆弱性は公開 Issue ではなく
+        [GitHub Security Advisory](https://github.com/sotanengel/makkuro/security/advisories/new)
+        からお願いします。
+  - type: input
+    id: version
+    attributes:
+      label: makkuro バージョン
+      description: "`makkuro version` の出力を貼ってください"
+      placeholder: "makkuro 0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python バージョン / OS
+      placeholder: "Python 3.13.1 / macOS 15.4"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 再現手順
+      description: |
+        可能なら `makkuro test "..."` で再現する最小ケースをどうぞ。
+        生の PII / 秘匿値は投稿しないでください。
+      placeholder: |
+        1. `makkuro start`
+        2. AI CLI を ... で呼び出す
+        3. `<MAKKURO_...>` が残らない
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する挙動
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の挙動
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 監査ログ抜粋 (任意)
+      description: "`makkuro audit tail` の関連部分。値そのものは伏せてください。"
+      render: text
