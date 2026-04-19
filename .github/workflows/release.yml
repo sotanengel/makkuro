@@ -136,6 +136,62 @@ jobs:
           # No `password:` — we use OIDC Trusted Publishing (SC-3.1).
           attestations: true
 
+  bump-formula:
+    # Update the Homebrew Formula in-repo so `brew install` picks up the new
+    # release. Only runs for stable tags (rc tags are skipped).
+    runs-on: ubuntu-latest
+    needs: [publish]
+    if: ${{ !contains(github.ref_name, 'rc') }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Compute source tarball sha256
+        id: tarball
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          url="https://github.com/${{ github.repository }}/archive/refs/tags/${GITHUB_REF_NAME}.tar.gz"
+          sha=$(curl -sL "$url" | sha256sum | awk '{print $1}')
+          {
+            echo "version=$version"
+            echo "url=$url"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
+      - name: Rewrite top-level url / sha256
+        env:
+          URL: ${{ steps.tarball.outputs.url }}
+          SHA: ${{ steps.tarball.outputs.sha }}
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          f = pathlib.Path("Formula/makkuro.rb")
+          t = f.read_text()
+          t = re.sub(r'^  url "https://github\.com/[^"]+"$',
+                     f'  url "{os.environ["URL"]}"', t, count=1, flags=re.M)
+          t = re.sub(r'^  sha256 "[a-f0-9]{64}"$',
+                     f'  sha256 "{os.environ["SHA"]}"', t, count=1, flags=re.M)
+          f.write_text(t)
+          PY
+      - name: Refresh PyPI resources
+        run: python scripts/update_formula.py
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/makkuro.rb
+          if git diff --cached --quiet; then
+            echo "formula already up to date"
+          else
+            git commit -m "chore(brew): bump formula to ${GITHUB_REF_NAME}"
+            git push origin HEAD:main
+          fi
+
   github-release:
     runs-on: ubuntu-latest
     needs: [publish, sbom]
