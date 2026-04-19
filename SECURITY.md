@@ -15,6 +15,11 @@ secrets in transit and are therefore a high-value target. See the full
 threat model in `docs/SPEC.md` §5.7 / §8. Key commitments:
 
 - Runtime dependencies are kept ≤ 15 and hash-pinned.
+- CI routes all `pip install` traffic through the
+  [Takumi Guard PyPI proxy](https://shisho.dev/docs/ja/t/guard/quickstart/pypi/)
+  (`https://pypi.flatt.tech/simple/`) so known-malicious releases are blocked
+  before they execute. Contributors can opt in locally — see
+  [README.md](README.md#takumi-guard-サプライチェーン保護).
 - Releases are published via PyPI Trusted Publishing (OIDC); no long-lived
   API tokens are stored.
 - Wheels and sdists are signed with Sigstore and carry SLSA build provenance.

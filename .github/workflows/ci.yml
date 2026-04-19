@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# Route pip installs through Takumi Guard so known-malicious PyPI releases are
+# blocked before any dependency executes in CI. See SECURITY.md.
+env:
+  PIP_INDEX_URL: https://pypi.flatt.tech/simple/
+  PIP_EXTRA_INDEX_URL: https://pypi.org/simple/
+
 jobs:
   test:
     runs-on: ubuntu-latest
