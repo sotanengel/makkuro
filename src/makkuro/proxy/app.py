@@ -22,7 +22,7 @@ from typing import Any
 import httpx
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
 from makkuro.allowlist import AllowList
@@ -38,6 +38,7 @@ from makkuro.protocol import (
 )
 from makkuro.proxy.egress import BlockedHostError, build_async_client
 from makkuro.proxy.redactor import Redactor
+from makkuro.proxy.sse import SSERehydrator
 from makkuro.vault import MemoryVault
 from makkuro.vault.base import Vault
 
@@ -124,16 +125,32 @@ async def _relay(
         upstream_url += "?" + request.url.query
 
     upstream_headers = _filter_forward_headers(dict(request.headers))
+    outbound_headers = {
+        **upstream_headers,
+        "content-type": "application/json",
+        "x-request-id": request_id,
+    }
+    outbound_content = json.dumps(encoded).encode("utf-8")
+
+    streaming = bool(encoded.get("stream")) or "text/event-stream" in request.headers.get(
+        "accept", ""
+    )
+
+    if streaming:
+        return await _relay_stream(
+            client=client,
+            cfg=cfg,
+            redactor=redactor,
+            url=upstream_url,
+            headers=outbound_headers,
+            content=outbound_content,
+        )
 
     try:
         upstream = await client.post(
             upstream_url,
-            content=json.dumps(encoded).encode("utf-8"),
-            headers={
-                **upstream_headers,
-                "content-type": "application/json",
-                "x-request-id": request_id,
-            },
+            content=outbound_content,
+            headers=outbound_headers,
         )
     except BlockedHostError as e:
         return JSONResponse({"error": str(e)}, status_code=502)
@@ -168,6 +185,59 @@ async def _relay(
             resp_body = adapter.apply_response_text(resp_body, new_edits)
 
     return JSONResponse(resp_body, status_code=upstream.status_code, headers=resp_headers)
+
+
+async def _relay_stream(
+    client: httpx.AsyncClient,
+    cfg: Config,
+    redactor: Redactor,
+    url: str,
+    headers: dict[str, str],
+    content: bytes,
+) -> Response:
+    """Relay an SSE stream upstream -> client with per-chunk rehydration.
+
+    The look-back buffer in :class:`SSERehydrator` guarantees a placeholder
+    split across two SSE chunks is never emitted half-rewritten.
+    """
+    rehydrator = SSERehydrator(redactor.mint) if cfg.redaction.rehydrate else None
+
+    async def _body_iter():
+        try:
+            async with client.stream(
+                "POST", url, content=content, headers=headers
+            ) as upstream:
+                if upstream.status_code >= 400:
+                    # On error, read the full body and pass through unchanged.
+                    err_bytes = await upstream.aread()
+                    yield err_bytes
+                    return
+                async for chunk in upstream.aiter_bytes():
+                    if rehydrator is None:
+                        yield chunk
+                        continue
+                    try:
+                        text = chunk.decode("utf-8")
+                    except UnicodeDecodeError:
+                        yield chunk
+                        continue
+                    out = rehydrator.feed(text)
+                    if out:
+                        yield out.encode("utf-8")
+                if rehydrator is not None:
+                    tail = rehydrator.flush()
+                    if tail:
+                        yield tail.encode("utf-8")
+        except BlockedHostError as e:
+            yield json.dumps({"error": str(e)}).encode("utf-8")
+        except httpx.RequestError as e:
+            yield json.dumps({"error": f"upstream error: {e}"}).encode("utf-8")
+
+    return StreamingResponse(
+        _body_iter(),
+        media_type="text/event-stream",
+        headers={"cache-control": "no-cache"},
+    )
 
 
 async def _proxy_anthropic(request: Request) -> Response:
