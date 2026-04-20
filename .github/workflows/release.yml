@@ -109,7 +109,7 @@ jobs:
         with:
           name: dist
           path: dist
-      - uses: sigstore/gh-action-sigstore-python@v3.0.1
+      - uses: sigstore/gh-action-sigstore-python@v3.3.0
         with:
           inputs: "dist/*"
           release-signing-artifacts: false
