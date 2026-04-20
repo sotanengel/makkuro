@@ -67,7 +67,7 @@ jobs:
         with:
           subject-path: "dist/*"
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -92,7 +92,7 @@ jobs:
           uv sync --frozen --no-dev
           uv run --with "cyclonedx-bom==5.3.0" \
             python -m cyclonedx_py environment --output-format JSON --output-file SBOM.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: SBOM.json
@@ -113,7 +113,7 @@ jobs:
         with:
           inputs: "dist/*"
           release-signing-artifacts: false
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-signed
           path: dist/
