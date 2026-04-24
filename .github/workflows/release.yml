@@ -63,7 +63,7 @@ jobs:
         # behaviour but without a pip bootstrap.
         run: uv build
       - name: Generate SLSA build provenance
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "dist/*"
       - name: Upload artifacts
