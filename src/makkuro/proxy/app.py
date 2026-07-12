@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
@@ -340,7 +341,12 @@ def build_app(
         Route("/v1beta/models/{rest:path}", _proxy_gemini, methods=["POST"]),
         Route("/v1/models/{rest:path}", _proxy_gemini, methods=["POST"]),
     ]
-    app = Starlette(routes=routes)
+    @asynccontextmanager
+    async def lifespan(app: Starlette):
+        yield
+        await egress.aclose()
+
+    app = Starlette(routes=routes, lifespan=lifespan)
     app.state.config = config
     app.state.adapters = {
         "anthropic": AnthropicAdapter(),
@@ -351,9 +357,4 @@ def build_app(
     app.state.vault = vault
     app.state.egress = egress
     app.state.audit = audit
-
-    async def _close_egress() -> None:
-        await egress.aclose()
-
-    app.add_event_handler("shutdown", _close_egress)
     return app
