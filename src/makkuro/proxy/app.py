@@ -13,12 +13,11 @@ adapter.extract_response_text + redactor.rehydrate_text -> JSON response.
 """
 
 from __future__ import annotations
-from contextlib import asynccontextmanager
-
 
 import json
 import logging
 import uuid
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
